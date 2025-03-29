@@ -1,0 +1,28 @@
+{
+  "feed": [
+    {
+      "post": {
+        "uri": "at://did:plc:fallback/feed/1",
+        "record": {
+          "text": "This is a fallback post that will be shown when the API is unavailable. Please try again later.",
+          "createdAt": "2023-01-01T00:00:00Z"
+        },
+        "author": {
+          "handle": "fallback.system"
+        }
+      }
+    },
+    {
+      "post": {
+        "uri": "at://did:plc:fallback/feed/2",
+        "record": {
+          "text": "Service is experiencing issues. This is cached content for continuity purposes.",
+          "createdAt": "2023-01-01T00:00:01Z"
+        },
+        "author": {
+          "handle": "fallback.system"
+        }
+      }
+    }
+  ]
+}

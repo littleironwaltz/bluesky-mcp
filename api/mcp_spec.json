@@ -1,0 +1,132 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Bluesky MCP API",
+    "description": "API for Bluesky Model Context Protocol",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/mcp/{method}": {
+      "post": {
+        "summary": "MCP endpoint",
+        "description": "Endpoint for all MCP methods",
+        "parameters": [
+          {
+            "name": "method",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["feed-analysis", "post-assist", "community-manage"]
+            },
+            "description": "The MCP method to execute"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JSONRPCRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JSONRPCResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JSONRPCErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JSONRPCErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "JSONRPCRequest": {
+        "type": "object",
+        "required": ["jsonrpc", "method", "params", "id"],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "example": "2.0"
+          },
+          "method": {
+            "type": "string",
+            "example": "feed-analysis"
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "id": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "JSONRPCResponse": {
+        "type": "object",
+        "required": ["jsonrpc", "result", "id"],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "example": "2.0"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "id": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
+      "JSONRPCErrorResponse": {
+        "type": "object",
+        "required": ["jsonrpc", "error", "id"],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "example": "2.0"
+          },
+          "error": {
+            "type": "string",
+            "example": "Invalid request format"
+          },
+          "id": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      }
+    }
+  }
+}

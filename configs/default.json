@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 3000,
+    "host": "0.0.0.0"
+  },
+  "bluesky": {
+    "host": "https://bsky.social",
+    "timeout": 10000
+  },
+  "cache": {
+    "enabled": true,
+    "ttl": {
+      "feed": 120,
+      "user": 180,
+      "auth": 3600
+    }
+  },
+  "security": {
+    "tlsMinVersion": "1.2",
+    "maxRequestSize": "1mb"
+  }
+}
