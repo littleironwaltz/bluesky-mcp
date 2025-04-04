@@ -1,0 +1,28 @@
+# Exclude Claude instruction file
+CLAUDE.md
+
+# Exclude AI documentation folder
+ai_doc/
+
+# Go binary files
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test files
+*.test
+*.out
+coverage.out
+
+# macOS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Cache files
+cache/*

@@ -1,7 +1,8 @@
-.PHONY: build test lint clean run
+.PHONY: build build-cli test lint clean run run-cli
 
-# Binary name
+# Binary names
 BINARY_NAME=bluesky-mcp
+CLI_BINARY_NAME=bluesky-mcp-cli
 # Build directory
 BUILD_DIR=bin
 
@@ -10,13 +11,26 @@ CURRENT_DIR=$(shell pwd)
 
 # Default build target
 build:
-	@echo "Building ${BINARY_NAME}..."
+	@echo "Building ${BINARY_NAME} server..."
 	@go build -o ${BUILD_DIR}/${BINARY_NAME} ./cmd/bluesky-mcp
+
+# Build CLI tool
+build-cli:
+	@echo "Building ${CLI_BINARY_NAME} CLI..."
+	@go build -o ${BUILD_DIR}/${CLI_BINARY_NAME} ./cmd/cli
+
+# Build both server and CLI
+build-all: build build-cli
 
 # Run the application
 run: build
-	@echo "Running ${BINARY_NAME}..."
+	@echo "Running ${BINARY_NAME} server..."
 	@./${BUILD_DIR}/${BINARY_NAME}
+
+# Run the CLI tool
+run-cli: build-cli
+	@echo "Running ${CLI_BINARY_NAME} CLI..."
+	@./${BUILD_DIR}/${CLI_BINARY_NAME}
 
 # Run tests
 test:
@@ -63,4 +77,4 @@ build-all: clean
 	@GOOS=windows GOARCH=amd64 go build -o ${BUILD_DIR}/${BINARY_NAME}-windows-amd64.exe ./cmd/bluesky-mcp
 
 # Default target
-all: deps lint test build
+all: deps lint test build-all

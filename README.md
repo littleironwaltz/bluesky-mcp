@@ -146,10 +146,10 @@ curl -X POST "http://localhost:3000/mcp/community-manage" \
 ### Building and Running the Service
 
 ```bash
-# Build the application
+# Build the server application
 make build
 
-# Run the application
+# Run the server application
 make run
 
 # Or run the binary directly
@@ -157,6 +157,64 @@ make run
 ```
 
 The service will start on port 3000 by default, with a health check server on port 3001.
+
+### Using the CLI Tool
+
+The project includes a command-line interface (CLI) that provides easy access to all API features.
+
+```bash
+# Build the CLI tool
+make build-cli
+
+# Run CLI commands
+./bin/bluesky-mcp-cli assist --mood excited --topic "artificial intelligence"
+./bin/bluesky-mcp-cli feed --hashtag golang --limit 5
+./bin/bluesky-mcp-cli community --user user.bsky.social --limit 3
+./bin/bluesky-mcp-cli version
+```
+
+**CLI Commands:**
+
+1. **assist** - Generate post suggestions
+   ```
+   ./bin/bluesky-mcp-cli assist --mood happy --topic programming
+   ```
+   Options:
+   - `--mood` (required): Mood for the post (happy, sad, excited, thoughtful)
+   - `--topic` (required): Topic for the post
+   - `--json`: Output in JSON format
+
+2. **feed** - Analyze hashtag feed
+   ```
+   ./bin/bluesky-mcp-cli feed --hashtag golang --limit 5
+   ```
+   Options:
+   - `--hashtag` (required): Hashtag to analyze
+   - `--limit` (optional): Number of posts to analyze (default: 10, max: 100)
+   - `--json`: Output in JSON format
+
+3. **community** - Monitor user activity
+   ```
+   ./bin/bluesky-mcp-cli community --user user.bsky.social --limit 3
+   ```
+   Options:
+   - `--user` (required): Username (format: username.bsky.social)
+   - `--limit` (optional): Number of posts to display (default: 5, max: 50)
+   - `--json`: Output in JSON format
+
+4. **version** - Display version information
+   ```
+   ./bin/bluesky-mcp-cli version
+   ```
+
+**Mock Mode for Testing:**
+
+For testing without Bluesky credentials, you can use mock mode:
+```bash
+MOCK_MODE=1 ./bin/bluesky-mcp-cli assist --mood happy --topic programming
+```
+
+See `docs/cli-usage.md` for detailed usage instructions.
 
 ## API Endpoints
 
@@ -291,7 +349,9 @@ This can be used by load balancers and monitoring tools to check service status.
 ```
 📂 bluesky-mcp/
 ├── 📂 cmd/
-│   └── 📂 bluesky-mcp/        # Main application entry point
+│   ├── 📂 bluesky-mcp/        # Main server entry point
+│   │   └── 📄 main.go
+│   └── 📂 cli/                # CLI application
 │       └── 📄 main.go
 ├── 📂 internal/               # Private application code
 │   ├── 📂 auth/               # Authentication with Bluesky API
@@ -308,6 +368,8 @@ This can be used by load balancers and monitoring tools to check service status.
 ├── 📂 api/                    # API specifications
 ├── 📂 configs/                # Configuration templates
 │   └── 📂 fallbacks/          # Fallback responses for API failures
+├── 📂 docs/                   # Documentation
+│   └── 📄 cli-usage.md        # CLI usage documentation
 └── 📄 Makefile                # Build commands
 ```
 
@@ -357,7 +419,7 @@ This can be used by load balancers and monitoring tools to check service status.
 - **Type Definitions**: Clear type definitions instead of anonymous structs
 - **Function Separation**: Complex operations split into smaller, focused functions
 - **Helper Functions**: Reusable helpers to eliminate code duplication
-- **Error Handling**: Standardized error handling patterns
+- **Error Handling**: Standardized error handling patterns with user-friendly messages
 - **Reduced Nesting**: Avoiding deep nesting for better readability
 - **Proper Comments**: Documentation for all public functions and types
 - **Consistent Patterns**: Standard approaches for retry operations
@@ -365,20 +427,28 @@ This can be used by load balancers and monitoring tools to check service status.
 - **Comprehensive Tests**: Unit tests with high coverage for all key modules (up to 100% in core components)
 - **Integration Testing**: Tests verify component interactions work correctly
 - **Authentication Management**: Proper authentication token sharing between services
+- **Mock Mode**: Testing support with mock data when credentials aren't available
+- **CLI Design**: User-friendly command-line interface with clear outputs and options
 
 ## Development
 
 ### Build and Test
 
 ```bash
-# Build the project
+# Build the server
 make build
+
+# Build the CLI
+make build-cli
+
+# Build both server and CLI
+make build-all
 
 # Run tests
 make test
 
 # Run tests with coverage
-go test ./... -cover
+make test-coverage
 
 # Run tests for a specific package
 go test ./internal/services/feed
@@ -394,6 +464,9 @@ make fmt
 
 # Lint code
 make lint
+
+# Vet code
+make vet
 ```
 
 ### Test Coverage
@@ -413,6 +486,7 @@ Tests include:
 - Integration tests for component interaction
 - Benchmarks for performance-critical code
 - Table-driven tests with multiple scenarios
+- CLI tests with mock data support
 
 ### Configuration Options
 
@@ -423,6 +497,7 @@ Environment Variables:
 - `BSKY_CONFIG_FILE` - Path to a JSON configuration file (overrides environment variables)
 - `BSKY_BACKUP_ID` - Backup Bluesky handle or email
 - `BSKY_BACKUP_PASSWORD` - Backup Bluesky password
+- `MOCK_MODE` - Set to "1" or "true" to enable mock mode for CLI testing without credentials
 
 ## License
 
