@@ -158,6 +158,16 @@ make run
 
 The service will start on port 3000 by default, with a health check server on port 3001.
 
+## Running with MCP Inspector
+
+Build and run the server with:
+```
+make build
+make run
+```
+
+The server runs on port 3000. Connect MCP Inspector to http://localhost:3000/mcp/{method} endpoints.
+
 ### Using the CLI Tool
 
 The project includes a command-line interface (CLI) that provides easy access to all API features.
