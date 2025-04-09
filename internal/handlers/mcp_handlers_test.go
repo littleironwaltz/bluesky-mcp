@@ -93,6 +93,13 @@ func TestHandleMCPRequestValidationErrors(t *testing.T) {
 			wantStatusCode: http.StatusBadRequest,
 			wantErrorCode:  models.ErrInvalidRequest,
 		},
+		{
+			name:           "Post submit method with missing text",
+			method:         "post-submit",
+			requestBody:    `{"jsonrpc": "2.0", "method": "post-submit", "params": {}, "id": 1}`,
+			wantStatusCode: http.StatusBadRequest,
+			wantErrorCode:  models.ErrInvalidParams,
+		},
 	}
 
 	for _, tt := range tests {
@@ -175,6 +182,12 @@ func TestHandleMethodError(t *testing.T) {
 		{
 			name:           "API error",
 			errString:      "API error",
+			wantStatusCode: http.StatusBadGateway,
+			wantErrorCode:  models.ErrAPIError,
+		},
+		{
+			name:           "Failed to create post error",
+			errString:      "failed to create post",
 			wantStatusCode: http.StatusBadGateway,
 			wantErrorCode:  models.ErrAPIError,
 		},

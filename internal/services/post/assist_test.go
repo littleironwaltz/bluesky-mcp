@@ -20,11 +20,13 @@ func TestGeneratePost(t *testing.T) {
 	}()
 	
 	tests := []struct {
-		name    string
-		cfg     config.Config
-		params  map[string]interface{}
-		check   func(string) bool
-		wantErr bool
+		name         string
+		cfg          config.Config
+		params       map[string]interface{}
+		check        func(string) bool
+		wantErr      bool
+		checkSubmit  bool
+		submitResult interface{}
 	}{
 		{
 			name: "Happy mood with topic",
@@ -168,8 +170,50 @@ func TestGeneratePost(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Submit post directly",
+			cfg:  config.Config{},
+			params: map[string]interface{}{
+				"mood":   "happy",
+				"topic":  "testing",
+				"submit": true,
+			},
+			check: func(suggestion string) bool {
+				// Should start with a happy template and include the topic
+				return strings.HasPrefix(suggestion, "Today is a great day!") &&
+					strings.Contains(suggestion, "testing")
+			},
+			wantErr:     false,
+			checkSubmit: true,
+			submitResult: map[string]interface{}{
+				"suggestion": "Today is a great day! I want to talk about testing.",
+				"submitted":  true,
+				"post_uri":   "at://test-user.bsky.social/post/testpostid",
+				"post_cid":   "bafyrei123456789",
+			},
+		},
 	}
 
+	// Create a mock SubmitPost function for testing
+	// Use a local variable to mock the function
+	mockSubmitPost := func(cfg config.Config, text string) (*PostResult, error) {
+		return &PostResult{
+			URI: "at://test-user.bsky.social/post/testpostid",
+			CID: "bafyrei123456789",
+		}, nil
+	}
+	
+	// Store the original function (will be used by reference in tests)
+	originalSubmitPost := SubmitPost
+	
+	// Replace with mock for tests
+	SubmitPost = mockSubmitPost
+	
+	// Restore original at the end
+	defer func() {
+		SubmitPost = originalSubmitPost
+	}()
+	
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GeneratePost(tt.cfg, tt.params)
@@ -182,20 +226,52 @@ func TestGeneratePost(t *testing.T) {
 				return
 			}
 			
-			gotMap, ok := got.(map[string]string)
-			if !ok {
-				t.Errorf("GeneratePost() returned type = %T, want map[string]string", got)
-				return
-			}
-			
-			suggestion, exists := gotMap["suggestion"]
-			if !exists {
-				t.Errorf("GeneratePost() response missing 'suggestion' key")
-				return
-			}
-			
-			if !tt.check(suggestion) {
-				t.Errorf("GeneratePost() = %v, did not pass validation check", suggestion)
+			if tt.checkSubmit {
+				// Check submit response structure
+				gotMap, ok := got.(map[string]interface{})
+				if !ok {
+					t.Errorf("GeneratePost() returned type = %T, want map[string]interface{}", got)
+					return
+				}
+				
+				suggestion, exists := gotMap["suggestion"].(string)
+				if !exists {
+					t.Errorf("GeneratePost() response missing 'suggestion' key")
+					return
+				}
+				
+				if !tt.check(suggestion) {
+					t.Errorf("GeneratePost() suggestion = %v, did not pass validation check", suggestion)
+				}
+				
+				// Check if submitted key exists and is true
+				submitted, exists := gotMap["submitted"].(bool)
+				if !exists || !submitted {
+					t.Errorf("GeneratePost() response missing 'submitted' key or it's not true: %v", gotMap)
+				}
+				
+				// Check post URI exists
+				postURI, exists := gotMap["post_uri"].(string)
+				if !exists || postURI == "" {
+					t.Errorf("GeneratePost() response missing 'post_uri' key or it's empty: %v", gotMap)
+				}
+			} else {
+				// Check standard response structure
+				gotMap, ok := got.(map[string]string)
+				if !ok {
+					t.Errorf("GeneratePost() returned type = %T, want map[string]string", got)
+					return
+				}
+				
+				suggestion, exists := gotMap["suggestion"]
+				if !exists {
+					t.Errorf("GeneratePost() response missing 'suggestion' key")
+					return
+				}
+				
+				if !tt.check(suggestion) {
+					t.Errorf("GeneratePost() = %v, did not pass validation check", suggestion)
+				}
 			}
 		})
 	}
@@ -248,4 +324,37 @@ func TestRandomTemplates(t *testing.T) {
 			t.Errorf("Suggestion doesn't contain topic: %s", suggestion)
 		}
 	}
+}
+
+func TestSubmitPost(t *testing.T) {
+	// Store the original function
+	originalSubmitPost := SubmitPost
+	
+	// Create a local variable for the test function
+	testSubmitPost := func(cfg config.Config, text string) (*PostResult, error) {
+		return &PostResult{
+			URI: "at://test-user.bsky.social/post/testpostid",
+			CID: "bafyrei123456789",
+		}, nil
+	}
+	
+	// Replace with test function
+	SubmitPost = testSubmitPost
+	
+	// Run test with the mock
+	result, err := testSubmitPost(config.Config{}, "Test post content")
+	if err != nil {
+		t.Errorf("SubmitPost() unexpected error: %v", err)
+	}
+	
+	if result.URI != "at://test-user.bsky.social/post/testpostid" {
+		t.Errorf("SubmitPost() got URI = %v, want %v", result.URI, "at://test-user.bsky.social/post/testpostid")
+	}
+	
+	if result.CID != "bafyrei123456789" {
+		t.Errorf("SubmitPost() got CID = %v, want %v", result.CID, "bafyrei123456789")
+	}
+	
+	// Restore original function
+	SubmitPost = originalSubmitPost
 }

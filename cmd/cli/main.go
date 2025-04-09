@@ -41,6 +41,7 @@ Provides easy access to post suggestions, feed analysis, and community managemen
 
 	// Add subcommands
 	rootCmd.AddCommand(assistCmd(mockMode))
+	rootCmd.AddCommand(submitCmd(mockMode))
 	rootCmd.AddCommand(feedCmd(mockMode))
 	rootCmd.AddCommand(communityCmd(mockMode))
 	rootCmd.AddCommand(versionCmd())
@@ -56,6 +57,7 @@ Provides easy access to post suggestions, feed analysis, and community managemen
 func assistCmd(mockMode bool) *cobra.Command {
 	var mood, topic string
 	var outputJSON bool
+	var submitDirect bool
 
 	cmd := &cobra.Command{
 		Use:   "assist",
@@ -64,11 +66,17 @@ func assistCmd(mockMode bool) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			// Use mock data if in mock mode or testing environment
 			if mockMode {
-				mockResult := map[string]string{
+				mockResult := map[string]interface{}{
 					"suggestion": "This is a mock suggestion for testing purposes!",
 				}
 				if mood != "" && topic != "" {
 					mockResult["suggestion"] = fmt.Sprintf("Feeling %s about %s! This is a mock suggestion.", mood, topic)
+				}
+				
+				if submitDirect {
+					mockResult["submitted"] = true
+					mockResult["post_uri"] = "at://fake-user.bsky.social/post/mock123456"
+					mockResult["post_cid"] = "bafyreia123456789mock"
 				}
 				
 				if outputJSON {
@@ -76,6 +84,10 @@ func assistCmd(mockMode bool) *cobra.Command {
 					fmt.Println(string(jsonOutput))
 				} else {
 					fmt.Println(mockResult["suggestion"])
+					if submitDirect {
+						fmt.Println("\nPost submitted successfully!")
+						fmt.Println("URI:", mockResult["post_uri"])
+					}
 				}
 				return
 			}
@@ -85,8 +97,9 @@ func assistCmd(mockMode bool) *cobra.Command {
 
 			// Create params
 			params := map[string]interface{}{
-				"mood":  mood,
-				"topic": topic,
+				"mood":   mood,
+				"topic":  topic,
+				"submit": submitDirect,
 			}
 
 			// Call the service function
@@ -96,20 +109,48 @@ func assistCmd(mockMode bool) *cobra.Command {
 				return
 			}
 
-			// Get suggestion from result
-			if suggestion, ok := result.(map[string]string); ok {
-				if outputJSON {
-					jsonOutput, err := json.MarshalIndent(suggestion, "", "  ")
-					if err != nil {
-						fmt.Println("Error formatting JSON:", err)
-						return
+			// Handle different result types depending on whether post was submitted
+			if submitDirect {
+				// For direct submit, result should be a map[string]interface{}
+				if resultMap, ok := result.(map[string]interface{}); ok {
+					if outputJSON {
+						jsonOutput, err := json.MarshalIndent(resultMap, "", "  ")
+						if err != nil {
+							fmt.Println("Error formatting JSON:", err)
+							return
+						}
+						fmt.Println(string(jsonOutput))
+					} else {
+						fmt.Println(resultMap["suggestion"])
+						
+						if submitted, ok := resultMap["submitted"].(bool); ok && submitted {
+							fmt.Println("\nPost submitted successfully!")
+							if uri, ok := resultMap["post_uri"].(string); ok {
+								fmt.Println("URI:", uri)
+							}
+						} else if errMsg, ok := resultMap["error"].(string); ok {
+							fmt.Println("\nFailed to submit post:", errMsg)
+						}
 					}
-					fmt.Println(string(jsonOutput))
 				} else {
-					fmt.Println(suggestion["suggestion"])
+					fmt.Println("Error: Unexpected response format")
 				}
 			} else {
-				fmt.Println("Error: Unexpected response format")
+				// For suggestion only, result should be a map[string]string
+				if suggestion, ok := result.(map[string]string); ok {
+					if outputJSON {
+						jsonOutput, err := json.MarshalIndent(suggestion, "", "  ")
+						if err != nil {
+							fmt.Println("Error formatting JSON:", err)
+							return
+						}
+						fmt.Println(string(jsonOutput))
+					} else {
+						fmt.Println(suggestion["suggestion"])
+					}
+				} else {
+					fmt.Println("Error: Unexpected response format")
+				}
 			}
 		},
 	}
@@ -118,6 +159,7 @@ func assistCmd(mockMode bool) *cobra.Command {
 	cmd.Flags().StringVar(&mood, "mood", "", "Mood for the post (e.g., happy, sad, excited, thoughtful)")
 	cmd.Flags().StringVar(&topic, "topic", "", "Topic for the post")
 	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+	cmd.Flags().BoolVar(&submitDirect, "submit", false, "Submit the generated post directly to Bluesky")
 
 	// Mark required flags
 	cmd.MarkFlagRequired("mood")
@@ -428,6 +470,86 @@ func displayCommunityResults(result interface{}) {
 }
 
 // formatUserFriendlyError converts technical errors into user-friendly messages
+// submitCmd submits a post directly to Bluesky
+func submitCmd(mockMode bool) *cobra.Command {
+	var text string
+	var outputJSON bool
+
+	cmd := &cobra.Command{
+		Use:   "submit",
+		Short: "Submit a post to Bluesky",
+		Long:  "Submit a post directly to your Bluesky account.",
+		Run: func(cmd *cobra.Command, args []string) {
+			// Use mock data if in mock mode or testing environment
+			if mockMode {
+				mockResult := map[string]interface{}{
+					"submitted": true,
+					"text": text,
+					"post_uri": "at://fake-user.bsky.social/post/mock123456",
+					"post_cid": "bafyreia123456789mock",
+				}
+				
+				if outputJSON {
+					jsonOutput, _ := json.MarshalIndent(mockResult, "", "  ")
+					fmt.Println(string(jsonOutput))
+				} else {
+					fmt.Println("Post submitted successfully!")
+					fmt.Println("Text:", text)
+					fmt.Println("URI:", mockResult["post_uri"])
+				}
+				return
+			}
+			
+			// Load configuration
+			cfg := config.LoadConfig()
+
+			// Get auth token first to ensure we're authenticated
+			_, err := auth.GetToken(cfg)
+			if err != nil {
+				fmt.Printf("Error: %s\n", formatUserFriendlyError(err, "submit"))
+				return
+			}
+
+			// Call the service function
+			postResult, err := post.SubmitPost(cfg, text)
+			if err != nil {
+				fmt.Printf("Error: %s\n", formatUserFriendlyError(err, "submit"))
+				return
+			}
+
+			// Format and display the result
+			result := map[string]interface{}{
+				"submitted": true,
+				"text": text,
+				"post_uri": postResult.URI,
+				"post_cid": postResult.CID,
+			}
+
+			if outputJSON {
+				jsonOutput, err := json.MarshalIndent(result, "", "  ")
+				if err != nil {
+					fmt.Println("Error formatting JSON:", err)
+					return
+				}
+				fmt.Println(string(jsonOutput))
+			} else {
+				fmt.Println("Post submitted successfully!")
+				fmt.Println("Text:", text)
+				fmt.Println("URI:", postResult.URI)
+			}
+		},
+	}
+
+	// Add flags
+	cmd.Flags().StringVar(&text, "text", "", "Text content of the post to submit")
+	cmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+
+	// Mark required flags
+	cmd.MarkFlagRequired("text")
+
+	return cmd
+}
+
 func formatUserFriendlyError(err error, command string) string {
 	errMsg := err.Error()
 
@@ -464,9 +586,12 @@ func formatUserFriendlyError(err error, command string) string {
 		if strings.Contains(errMsg, "invalid user handle format") {
 			return "Invalid user handle format. Please use the format username.bsky.social or a valid DID."
 		}
-	case "assist":
+	case "assist", "submit":
 		if strings.Contains(errMsg, "topic too long") {
 			return "Topic is too long. Please keep it under 200 characters."
+		}
+		if strings.Contains(errMsg, "failed to create post") {
+			return "Failed to create post. Please check your account permissions and try again."
 		}
 	}
 

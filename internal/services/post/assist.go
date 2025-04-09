@@ -1,11 +1,13 @@
 package post
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"math/rand"
 	"time"
 
+	"github.com/littleironwaltz/bluesky-mcp/internal/auth"
 	"github.com/littleironwaltz/bluesky-mcp/pkg/config"
 )
 
@@ -25,6 +27,8 @@ var defaultTemplateSelector templateSelector = func(templates []string) string {
 // For testing, can be replaced with a deterministic selector
 var getRandomTemplate = defaultTemplateSelector
 
+// GeneratePost creates post suggestions based on mood and topic
+// Can also directly submit posts to Bluesky when submit parameter is true
 func GeneratePost(cfg config.Config, params map[string]interface{}) (interface{}, error) {
 	// Proper type assertions with validation
 	mood, ok := params["mood"].(string)
@@ -36,6 +40,9 @@ func GeneratePost(cfg config.Config, params map[string]interface{}) (interface{}
 	if !ok {
 		topic = ""
 	}
+
+	// Check if post should be submitted directly
+	submitPost, _ := params["submit"].(bool)
 
 	// Validate inputs
 	if len(topic) > 200 {
@@ -138,5 +145,83 @@ func GeneratePost(cfg config.Config, params map[string]interface{}) (interface{}
 		suggestion = getRandomTemplate(fallbackTemplates)
 	}
 
+	// If submit is true, submit the post to Bluesky
+	if submitPost {
+		postResult, err := SubmitPost(cfg, suggestion)
+		if err != nil {
+			return map[string]interface{}{
+				"suggestion": suggestion,
+				"submitted": false,
+				"error": err.Error(),
+			}, nil
+		}
+		return map[string]interface{}{
+			"suggestion": suggestion,
+			"submitted": true,
+			"post_uri": postResult.URI,
+			"post_cid": postResult.CID,
+		}, nil
+	}
+
 	return map[string]string{"suggestion": suggestion}, nil
+}
+
+// Result contains information about a successfully created post
+type PostResult struct {
+	URI string `json:"uri"`
+	CID string `json:"cid"`
+}
+
+// SubmitPostFunc defines the function signature for the SubmitPost function
+type SubmitPostFunc func(cfg config.Config, text string) (*PostResult, error)
+
+// SubmitPost is the actual implementation that submits a post to Bluesky
+var SubmitPost SubmitPostFunc = func(cfg config.Config, text string) (*PostResult, error) {
+	// Get token manager
+	tokenManager := auth.GetTokenManager(cfg)
+	
+	// Get authenticated client
+	client := tokenManager.GetClient()
+	
+	// Get user DID
+	did := tokenManager.GetDID()
+	if did == "" {
+		// Force authentication if DID is empty
+		_, err := tokenManager.GetToken(cfg)
+		if err != nil {
+			return nil, fmt.Errorf("authentication failed: %w", err)
+		}
+		did = tokenManager.GetDID()
+		if did == "" {
+			return nil, fmt.Errorf("unable to get user DID")
+		}
+	}
+
+	// Create post record
+	record := map[string]interface{}{
+		"$type": "app.bsky.feed.post",
+		"text": text,
+		"createdAt": time.Now().UTC().Format(time.RFC3339),
+	}
+
+	// Create repo request
+	request := map[string]interface{}{
+		"repo": did,
+		"collection": "app.bsky.feed.post",
+		"record": record,
+	}
+
+	// Submit post
+	responseBody, err := client.Post("com.atproto.repo.createRecord", request)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create post: %w", err)
+	}
+
+	// Parse response
+	var result PostResult
+	if err := json.Unmarshal(responseBody, &result); err != nil {
+		return nil, fmt.Errorf("error parsing create post response: %w", err)
+	}
+
+	return &result, nil
 }

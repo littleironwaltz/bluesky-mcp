@@ -149,6 +149,13 @@ func (tm *TokenManager) GetClient() *apiclient.BlueskyClient {
 	return tm.client
 }
 
+// GetDID returns the authenticated user's DID
+func (tm *TokenManager) GetDID() string {
+	tm.mutex.RLock()
+	defer tm.mutex.RUnlock()
+	return tm.session.DID
+}
+
 // getValidTokenUnlocked checks if we have a valid token (must be called with lock held)
 func (tm *TokenManager) getValidTokenUnlocked() (string, bool) {
 	if tm.session.AccessJWT == "" {

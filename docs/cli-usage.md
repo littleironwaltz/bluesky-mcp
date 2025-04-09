@@ -36,6 +36,7 @@ Generate creative post suggestions based on your specified mood and topic.
 - `--mood` (required): The emotional tone for the post
   - Valid options: `happy`, `sad`, `excited`, `thoughtful`
 - `--topic` (required): The subject of the post (max 200 characters)
+- `--submit`: Submit the generated post directly to your Bluesky account
 - `--json`: Output in JSON format instead of plain text
 
 **Examples:**
@@ -46,11 +47,38 @@ Generate creative post suggestions based on your specified mood and topic.
 # Generate an excited post about technology
 ./bin/bluesky-mcp-cli assist --mood excited --topic technology
 
+# Generate and submit a post to your Bluesky account
+./bin/bluesky-mcp-cli assist --mood thoughtful --topic philosophy --submit
+
 # Generate a post in JSON format
 ./bin/bluesky-mcp-cli assist --mood thoughtful --topic philosophy --json
 ```
 
-### 2. Analyze Posts with a Hashtag
+### 2. Submit a Post to Bluesky
+
+Submit a post directly to your Bluesky account.
+
+```bash
+./bin/bluesky-mcp-cli submit --text "Hello, Bluesky! This is a post from the CLI tool."
+```
+
+**Options:**
+- `--text` (required): The text content of the post
+- `--json`: Output in JSON format instead of plain text
+
+**Examples:**
+```bash
+# Submit a simple post
+./bin/bluesky-mcp-cli submit --text "Just installed the new Bluesky MCP CLI tool!"
+
+# Submit a post with hashtags
+./bin/bluesky-mcp-cli submit --text "Loving the new API tools #bluesky #development"
+
+# Submit a post with JSON output
+./bin/bluesky-mcp-cli submit --text "Post with JSON response" --json
+```
+
+### 3. Analyze Posts with a Hashtag
 
 Analyze posts containing a specific hashtag and display sentiment analysis results.
 
@@ -75,7 +103,7 @@ Analyze posts containing a specific hashtag and display sentiment analysis resul
 MOCK_MODE=1 ./bin/bluesky-mcp-cli feed --hashtag golang --limit 5
 ```
 
-### 3. Monitor User Activity
+### 4. Monitor User Activity
 
 Display recent posts from a specific Bluesky user.
 
@@ -100,7 +128,7 @@ Display recent posts from a specific Bluesky user.
 MOCK_MODE=1 ./bin/bluesky-mcp-cli community --user user.bsky.social --limit 3
 ```
 
-### 4. Display Version Information
+### 5. Display Version Information
 
 ```bash
 ./bin/bluesky-mcp-cli version
@@ -152,3 +180,10 @@ The CLI provides user-friendly error messages. Common issues include:
 - **API Errors**: The Bluesky API may be temporarily unavailable
 
 For more detailed information, you can view the JSON response using the `--json` flag.
+
+## Recent Improvements
+
+- Fixed post submission in `assist --submit` command to correctly use authenticated user's DID
+- Enhanced authentication mechanism for more reliable post creation
+- Improved error handling for post submission failures
+- More consistent authentication management across all commands

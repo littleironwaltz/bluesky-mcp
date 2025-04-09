@@ -20,6 +20,7 @@ import (
 var ValidMethods = map[string]bool{
 	"feed-analysis":    true,
 	"post-assist":      true,
+	"post-submit":      true,
 	"community-manage": true,
 }
 
@@ -162,6 +163,8 @@ func processMCPMethod(method string, params map[string]interface{}, cfg config.C
 		timeout = 15 * time.Second
 	case "post-assist":
 		timeout = 5 * time.Second
+	case "post-submit":
+		timeout = 10 * time.Second
 	case "community-manage":
 		timeout = 10 * time.Second
 	default:
@@ -178,6 +181,23 @@ func processMCPMethod(method string, params map[string]interface{}, cfg config.C
 			result, err = feed.AnalyzeFeed(cfg, params)
 		case "post-assist":
 			result, err = post.GeneratePost(cfg, params)
+		case "post-submit":
+			// For direct post submission
+			text, ok := params["text"].(string)
+			if !ok || text == "" {
+				err = fmt.Errorf("invalid parameter: text is required")
+				break
+			}
+			postResult, postErr := post.SubmitPost(cfg, text)
+			if postErr != nil {
+				err = postErr
+				break
+			}
+			result = map[string]interface{}{
+				"submitted": true,
+				"post_uri": postResult.URI,
+				"post_cid": postResult.CID,
+			}
 		case "community-manage":
 			result, err = community.ManageCommunity(cfg, params)
 		}
@@ -224,7 +244,7 @@ func handleMethodError(c echo.Context, err error, requestID int) error {
 			"Invalid parameters", requestID)
 			
 	case strings.Contains(errString, "server") || strings.Contains(errString, "API error") ||
-		 strings.Contains(errString, "status 5"):
+		 strings.Contains(errString, "status 5") || strings.Contains(errString, "failed to create post"):
 		return respondWithError(c, http.StatusBadGateway, models.ErrAPIError, 
 			"Upstream API error", requestID)
 	

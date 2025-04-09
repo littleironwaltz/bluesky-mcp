@@ -5,7 +5,7 @@ A Go service that implements a Model Context Protocol server for the Bluesky soc
 ## Features
 
 - **Feed Analysis**: Analyze Bluesky feeds and perform sentiment analysis on posts
-- **Post Assistant**: Generate varied and engaging content suggestions for Bluesky posts based on mood and topic
+- **Post Assistant**: Generate varied and engaging content suggestions for Bluesky posts based on mood and topic, with direct post submission capability
 - **Community Management**: Track user activity and monitor recent posts
 - **Security**: Implements input validation, TLS security, and protection against common web vulnerabilities
 - **High Availability**: Built-in redundancy features for increased reliability
@@ -34,7 +34,9 @@ The Post Assist service helps users create engaging content by:
 - Offering multiple mood templates (happy, sad, excited, thoughtful) with natural variations
 - Integrating topics with different phrasings to maintain diversity
 - Randomizing template selection to prevent repetitive suggestions
+- Allowing direct submission of generated content to Bluesky using authenticated user's DID
 - Sanitizing inputs to prevent XSS and other injection attacks
+- Utilizing shared TokenManager authentication for reliable post creation
 
 ### Community Management
 
@@ -66,7 +68,7 @@ curl -X POST "http://localhost:3000/mcp/feed-analysis" \
   }'
 ```
 
-#### Post Assist Request
+#### Post Assist Request (Generate Suggestion)
 
 ```bash
 curl -X POST "http://localhost:3000/mcp/post-assist" \
@@ -77,6 +79,38 @@ curl -X POST "http://localhost:3000/mcp/post-assist" \
     "params": {
       "mood": "excited",
       "topic": "artificial intelligence"
+    },
+    "id": 1
+  }'
+```
+
+#### Post Assist Request (Generate & Submit)
+
+```bash
+curl -X POST "http://localhost:3000/mcp/post-assist" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "post-assist",
+    "params": {
+      "mood": "excited",
+      "topic": "artificial intelligence",
+      "submit": true
+    },
+    "id": 1
+  }'
+```
+
+#### Direct Post Submission
+
+```bash
+curl -X POST "http://localhost:3000/mcp/post-submit" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "post-submit",
+    "params": {
+      "text": "Hello Bluesky from MCP server!"
     },
     "id": 1
   }'
@@ -178,6 +212,8 @@ make build-cli
 
 # Run CLI commands
 ./bin/bluesky-mcp-cli assist --mood excited --topic "artificial intelligence"
+./bin/bluesky-mcp-cli assist --mood happy --topic "great day" --submit
+./bin/bluesky-mcp-cli submit --text "Hello Bluesky from CLI!"
 ./bin/bluesky-mcp-cli feed --hashtag golang --limit 5
 ./bin/bluesky-mcp-cli community --user user.bsky.social --limit 3
 ./bin/bluesky-mcp-cli version
@@ -185,16 +221,26 @@ make build-cli
 
 **CLI Commands:**
 
-1. **assist** - Generate post suggestions
+1. **assist** - Generate post suggestions (with optional submission)
    ```
    ./bin/bluesky-mcp-cli assist --mood happy --topic programming
+   ./bin/bluesky-mcp-cli assist --mood excited --topic "new feature" --submit
    ```
    Options:
    - `--mood` (required): Mood for the post (happy, sad, excited, thoughtful)
    - `--topic` (required): Topic for the post
+   - `--submit`: Submit the generated post directly to Bluesky
    - `--json`: Output in JSON format
 
-2. **feed** - Analyze hashtag feed
+2. **submit** - Submit a post directly to Bluesky
+   ```
+   ./bin/bluesky-mcp-cli submit --text "Hello world from Bluesky MCP CLI!"
+   ```
+   Options:
+   - `--text` (required): Text content of the post to submit
+   - `--json`: Output in JSON format
+
+3. **feed** - Analyze hashtag feed
    ```
    ./bin/bluesky-mcp-cli feed --hashtag golang --limit 5
    ```
@@ -203,7 +249,7 @@ make build-cli
    - `--limit` (optional): Number of posts to analyze (default: 10, max: 100)
    - `--json`: Output in JSON format
 
-3. **community** - Monitor user activity
+4. **community** - Monitor user activity
    ```
    ./bin/bluesky-mcp-cli community --user user.bsky.social --limit 3
    ```
@@ -212,7 +258,7 @@ make build-cli
    - `--limit` (optional): Number of posts to display (default: 5, max: 50)
    - `--json`: Output in JSON format
 
-4. **version** - Display version information
+5. **version** - Display version information
    ```
    ./bin/bluesky-mcp-cli version
    ```
@@ -298,8 +344,9 @@ Generate post suggestions based on mood and topic.
 **Parameters:**
 - `mood` (string, optional): Mood to influence the post (e.g., "happy", "sad", "excited", "thoughtful")
 - `topic` (string, optional, max length: 200): Topic to include in the post
+- `submit` (boolean, optional, default: false): When set to true, submits the generated post directly to the user's Bluesky account
 
-**Response:**
+**Response (without submission):**
 ```json
 {
   "jsonrpc": "2.0",
@@ -310,7 +357,53 @@ Generate post suggestions based on mood and topic.
 }
 ```
 
+**Response (with submission):**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "suggestion": "Feeling so positive right now! Has anyone else been thinking about programming?",
+    "submitted": true,
+    "post_uri": "at://did:plc:abcdef/app.bsky.feed.post/12345",
+    "post_cid": "bafyrei..."
+  },
+  "id": 1
+}
+```
+
 The post assistant generates varied suggestions based on the provided mood and topic, with multiple templates for each mood type and different ways to incorporate the topic.
+
+### post-submit
+
+Submit text directly as a post to Bluesky.
+
+**Request:**
+```json
+{
+  "jsonrpc": "2.0",
+  "method": "post-submit",
+  "params": {
+    "text": "Hello world from Bluesky MCP!"
+  },
+  "id": 1
+}
+```
+
+**Parameters:**
+- `text` (string, required): The text content to post to Bluesky
+
+**Response:**
+```json
+{
+  "jsonrpc": "2.0",
+  "result": {
+    "submitted": true,
+    "post_uri": "at://did:plc:abcdef/app.bsky.feed.post/12345",
+    "post_cid": "bafyrei..."
+  },
+  "id": 1
+}
+```
 
 ### community-manage
 

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -38,6 +39,7 @@ func setupRootCommand() *cobra.Command {
 	}
 	rootCmd.AddCommand(versionCmd())
 	rootCmd.AddCommand(assistCmd(true))
+	rootCmd.AddCommand(submitCmd(true))
 	rootCmd.AddCommand(feedCmd(true))
 	rootCmd.AddCommand(communityCmd(true))
 	return rootCmd
@@ -98,6 +100,55 @@ func TestAssistCommand(t *testing.T) {
 	
 	// Test assist command with JSON output
 	output, err = testExecuteCommand(rootCmd, "assist", "--mood", "excited", "--topic", "AI", "--json")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	
+	// Check that the output contains JSON
+	if output == "" || output[0] != '{' {
+		t.Errorf("Expected JSON output, got: %s", output)
+	}
+	
+	// Test assist command with submit flag and JSON output to check structure
+	output, err = testExecuteCommand(rootCmd, "assist", "--mood", "happy", "--topic", "testing", "--submit", "--json")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	
+	// Check that output contains the expected content for post submission
+	if !strings.Contains(output, "\"submitted\": true") {
+		t.Errorf("Expected output to contain 'submitted' field, got: %s", output)
+	}
+}
+
+// TestSubmitCommand tests the submit command
+func TestSubmitCommand(t *testing.T) {
+	// Save environment variables and restore them after test
+	originalBskyID := os.Getenv("BSKY_ID")
+	originalBskyPassword := os.Getenv("BSKY_PASSWORD")
+	originalMockMode := os.Getenv("MOCK_MODE")
+	defer func() {
+		os.Setenv("BSKY_ID", originalBskyID)
+		os.Setenv("BSKY_PASSWORD", originalBskyPassword)
+		os.Setenv("MOCK_MODE", originalMockMode)
+	}()
+
+	// Set up test environment
+	rootCmd := setupRootCommand()
+
+	// Test submit command with mock mode
+	output, err := testExecuteCommand(rootCmd, "submit", "--text", "This is a test post from CLI")
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	
+	// Check that output contains the expected content
+	if !strings.Contains(output, "Post submitted successfully!") {
+		t.Errorf("Expected output to contain 'Post submitted successfully!', got: %s", output)
+	}
+	
+	// Test submit command with JSON output
+	output, err = testExecuteCommand(rootCmd, "submit", "--text", "This is a test post with JSON output", "--json")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
