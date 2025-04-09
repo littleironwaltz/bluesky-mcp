@@ -74,10 +74,10 @@ var (
 // NewClient creates a new BlueskyClient
 func NewClient(baseURL string) *BlueskyClient {
 	return &BlueskyClient{
-		BaseURL:        baseURL,
-		HTTPClient:     getHTTPClient(),
-		RetryConfig:    DefaultRetryConfig,
-		CircuitBreaker: DefaultCircuitBreakerConfig,
+		BaseURL:           baseURL,
+		HTTPClient:        getHTTPClient(),
+		RetryConfig:       DefaultRetryConfig,
+		CircuitBreaker:    DefaultCircuitBreakerConfig,
 		FallbackResponses: make(map[string][]byte),
 	}
 }
@@ -106,7 +106,7 @@ func (c *BlueskyClient) RegisterFallbackResponse(endpoint string, response []byt
 func (c *BlueskyClient) Get(endpoint string, params url.Values) ([]byte, error) {
 	// Construct full URL
 	apiURL := fmt.Sprintf("%s/xrpc/%s", c.BaseURL, endpoint)
-	if params != nil && len(params) > 0 {
+	if len(params) > 0 {
 		apiURL = fmt.Sprintf("%s?%s", apiURL, params.Encode())
 	}
 
@@ -171,31 +171,26 @@ func (c *BlueskyClient) executeRequestWithRetries(ctx context.Context, req *http
 	bOff.MaxInterval = c.RetryConfig.MaxInterval
 	bOff.Multiplier = c.RetryConfig.Multiplier
 	bOff.MaxElapsedTime = c.RetryConfig.MaxElapsedTime
-	
+
 	var responseBody []byte
 	err := backoff.Retry(func() error {
 		var err error
 		responseBody, err = c.executeRequest(req.Clone(ctx))
-		
-		// If succeeded, half-close the circuit breaker if it was in a half-open state
+
+		// If succeeded, record success and return nil
 		if err == nil {
 			c.recordSuccess()
 			return nil
 		}
-		
-		// Record failure and possibly open circuit breaker
+
+		// If error occurred, record failure
 		c.recordFailure()
-		
-		// Return errors for retry decision
-		if err != nil {
-			// Check if the error is retryable (network error or 5xx)
-			if isRetryableError(err) {
-				return err // Return the error to retry
-			}
-			return backoff.Permanent(err) // Don't retry other errors
+
+		// Check if the error is retryable (network error or 5xx)
+		if isRetryableError(err) {
+			return err // Return the error to retry
 		}
-		
-		return nil
+		return backoff.Permanent(err) // Don't retry other errors
 	}, bOff)
 
 	// If all retries failed but we have a fallback, use it
@@ -212,24 +207,24 @@ func isRetryableError(err error) bool {
 	if err, ok := err.(net.Error); ok {
 		return err.Temporary() || err.Timeout()
 	}
-	
+
 	// Check for HTTP status codes in the error message
 	errStr := err.Error()
-	return strings.Contains(errStr, "status 500") || 
-	       strings.Contains(errStr, "status 502") || 
-	       strings.Contains(errStr, "status 503") || 
-	       strings.Contains(errStr, "status 504") ||
-	       strings.Contains(errStr, "connection refused") ||
-	       strings.Contains(errStr, "no such host")
+	return strings.Contains(errStr, "status 500") ||
+		strings.Contains(errStr, "status 502") ||
+		strings.Contains(errStr, "status 503") ||
+		strings.Contains(errStr, "status 504") ||
+		strings.Contains(errStr, "connection refused") ||
+		strings.Contains(errStr, "no such host")
 }
 
 // isCircuitBreakerOpen checks if the circuit breaker is open
 func (c *BlueskyClient) isCircuitBreakerOpen() bool {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	
+
 	now := time.Now()
-	
+
 	// If circuit is open, check if reset timeout has passed
 	if c.isCircuitOpen {
 		if now.Sub(c.circuitLastChecked) > c.CircuitBreaker.ResetTimeout {
@@ -244,7 +239,7 @@ func (c *BlueskyClient) isCircuitBreakerOpen() bool {
 		}
 		return true
 	}
-	
+
 	return false
 }
 
@@ -252,9 +247,9 @@ func (c *BlueskyClient) isCircuitBreakerOpen() bool {
 func (c *BlueskyClient) recordFailure() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	c.currentFailures++
-	
+
 	// If we hit the threshold, open the circuit
 	if c.currentFailures >= c.CircuitBreaker.FailureThreshold {
 		c.isCircuitOpen = true
@@ -266,10 +261,10 @@ func (c *BlueskyClient) recordFailure() {
 func (c *BlueskyClient) recordSuccess() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	
+
 	// Reset failure count on successful requests
 	c.currentFailures = 0
-	
+
 	// If circuit was in half-open state, fully close it
 	if c.isCircuitOpen {
 		c.isCircuitOpen = false
